@@ -1,0 +1,88 @@
+MapLog  
+
+import java.io.IOException;
+
+import org.apache.hadoop.io.*;
+import org.apache.hadoop.mapreduce.*;
+
+public class MapLog extends Mapper<LongWritable, Text, Text, IntWritable>{
+	private Text ipAddress = new Text();
+
+	public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+		String line = value.toString();
+ 	    String[] parts = line.split(" - - ");
+ 	    if (parts.length >= 1) {
+ 	    	String ipAddressStr = parts[0].trim();
+ 	    	ipAddress.set(ipAddressStr);
+ 	    	context.write(ipAddress, new IntWritable(1));
+ 	    }
+ 	}
+}
+
+ReduceLog
+
+import java.io.IOException;
+	import org.apache.hadoop.io.*;
+	import org.apache.hadoop.mapreduce.*;
+	
+public class ReduceLog extends Reducer<Text, IntWritable, Text, IntWritable> {
+	int maxCount = Integer.MIN_VALUE;
+	Text maxUser = new Text();
+	public void reduce(Text key, Iterable<IntWritable> values, Context context) 
+		      throws IOException, InterruptedException {
+		        
+		        int sum = 0;
+		        
+		 	for (IntWritable val : values) {
+		 	    sum += val.get();
+		 	
+		 	}
+		 	 if (sum > maxCount) {
+		            maxCount = sum;
+		            maxUser.set(key); // Set the key (IP address) with the maximum count
+		        }}
+		 	@Override
+		    protected void cleanup(Context context) throws IOException, InterruptedException {
+		        // Output the IP address with the maximum count after all reductions are done
+		        context.write(maxUser, new IntWritable(maxCount));
+		    }
+
+
+}
+
+LogCount 
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+
+public class LogCount {
+
+	public static void main(String[] args) throws Exception {
+		// TODO Auto-generated method stub
+Configuration conf = new Configuration();
+		
+		Job job = new Job(conf,"logfile");
+	    
+	   
+		job.setJarByClass(LogCount.class);
+	    job.setMapperClass(MapLog.class);
+	    job.setReducerClass(ReduceLog.class);
+	 	
+	    job.setOutputKeyClass(Text.class);
+	    job.setOutputValueClass(IntWritable.class);
+	 	
+	    FileInputFormat.addInputPath(job, new Path(args[0]));
+	    FileOutputFormat.setOutputPath(job, new Path(args[1]));
+	 	
+	    System.exit(job.waitForCompletion(true)?0:1);
+
+
+	}
+
+}
+
